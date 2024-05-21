@@ -1,0 +1,197 @@
+<?php
+
+// Configurações do site
+define('HOST', 'localhost'); //IP
+define('USER', 'root'); //usuario
+define('PASS', null); //Senha
+define('DB', 'mydb'); //Banco
+/**
+ * Conexao.class TIPO [Conexão]
+ * Descricao: Estabelece conexões com o banco usando SingleTon
+ * @copyright (c) year, WMBarros
+ */
+
+class Conexao {
+
+    /** @var PDO */
+    private static $Connect;
+
+    private static function Conectar() {
+        try {
+
+            //Verifica se a conexão não existe
+            if (self::$Connect == null):
+
+                $dsn = 'mysql:host=' . HOST . ';dbname=' . DB;
+                self::$Connect = new PDO($dsn, USER, PASS, null);
+            endif;
+        } catch (PDOException $e) {
+            echo $e->getMessage();
+        }
+       
+        //Seta os atributos para que seja retornado as excessões do banco
+        self::$Connect->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
+       
+        return  self::$Connect;
+    }
+
+    public static function retornarConexao() {
+        return  self::Conectar();
+    }
+    
+    
+}
+
+<?php
+
+require_once 'conexaoModel.php';
+
+class CamisetaDAO extends Conexao{
+
+    public function CadastrarCamiseta($nome, $tamanho, $cor, $preco)
+    {
+       
+        //1 passo: Criar uma variável que receberá o obj de conexão
+        $conexao = parent::retornarConexao();
+
+        //2 passo: Criar uma variável que receberá o texto do comando SQL que devera ser executado no BD
+        $comando_sql = 'insert into camisa
+        (nome, tamanho, cor, preco)
+        values (?, ?, ?, ?);';
+
+        //3 passo: Criar um obj que será config. e levado no BD para ser executado
+        $sql = new PDOStatement();
+
+        //4 passo: Colocar dentro do obj $sql a conexão preparada para executar o comando_sql 
+        $sql = $conexao->prepare($comando_sql);
+
+        //5 passo: Verificar se no comando_sql eu tenho ? para ser configurado. Se tiver, configurar o BindValues
+        $sql->bindValue(1, $nome);
+        $sql->bindValue(2, $tamanho);
+        $sql->bindValue(3, $cor);
+        $sql->bindValue(4, $preco);
+
+        try {
+
+            //6 passo: executar no BD
+            $sql->execute();
+
+            return 1;
+        } catch (Exception $ex) {
+            
+           return -1;
+        }
+    }
+
+    public function ConsultarCamiseta()
+    {
+        $conexao = parent::retornarConexao();
+
+        $comando_sql = 'SELECT id,
+                                nome, tamanho, cor, preco
+                        FROM   camisa;';
+
+        $sql = new PDOStatement();
+        $sql = $conexao->prepare($comando_sql);
+
+        $sql->setFetchMode(PDO::FETCH_ASSOC);
+
+        $sql->execute();
+
+        return $sql->fetchAll();
+    }
+
+
+}
+
+<?php
+require_once './Model/CamisetaDAO.php';
+
+$nome = '';
+$tamanho = '';
+$cor = '';
+$preco = '';
+
+if (isset($_POST['Salvar'])) {
+    $nome = $_POST['nome'];
+    $tamanho = $_POST['tamanho'];
+    $cor = $_POST['cor'];
+    $preco = $_POST['preco'];
+
+    $DAO = new CamisetaDAO;
+
+    $retorno = $DAO->CadastrarCamiseta($nome, $tamanho, $cor, $preco);
+
+}
+
+$camisetas = $DAO->ConsultarCamiseta();
+
+?>
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loja de Camisetas</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Loja de Camisetas</h1>
+
+        <form action="index.php" method="POST">
+            <div class="form-group">
+                <label for="nome">Nome da Camiseta</label>
+                <input type="text" class="form-control" id="nome" name="nome" required>
+            </div>
+            <div class="form-group">
+                <label for="tamanho">Tamanho</label>
+                <input type="text" class="form-control" id="tamanho" name="tamanho" required>
+            </div>
+            <div class="form-group">
+                <label for="cor">Cor</label>
+                <input type="text" class="form-control" id="cor" name="cor" required>
+            </div>
+            <div class="form-group">
+                <label for="preco">Preço</label>
+                <input type="number" step="0.01" class="form-control" id="preco" name="preco" required>
+            </div>
+            <button name="Salvar" type="submit" class="btn btn-primary">Cadastrar</button> 
+        </form>
+    
+    <div class="panel-body mt-4">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-bordered table-hover" id="dataTables-example">
+                                        <thead>
+                                            <tr>
+                                                <th>Nome do produto</th>
+                                                <th>Tamanho</th>
+                                                <th>Cor</th>
+                                                <th>Preço</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php for ($i = 0; $i < count($camisetas); $i++) { ?>
+                                                <tr class="odd gradeX">
+                                                    <td><?= $camisetas[$i]['nome'] ?></td>
+                                                    <td><?= $camisetas[$i]['tamanho'] ?></td>
+                                                    <td><?= $camisetas[$i]['cor'] ?></td>
+                                                    <td><?= $camisetas[$i]['preco'] ?></td>
+                                                </tr>
+                                            <?php } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+        </form>
+    </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
+
